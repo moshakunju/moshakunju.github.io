@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>SBS Valakom Summer Camp 2026 Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    #reader { width: 100%; max-width: 400px; margin: auto; border: 2px solid #ccc; padding: 10px; border-radius: 8px; }
+    #status { margin-top: 20px; font-size: 16px; font-weight: bold; }
+    button { padding: 10px 15px; margin-top: 15px; border-radius: 8px; background: #4CAF50; color: white; border: none; font-weight: bold; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>SBS Valakom Centre Summer Camp 2026</h2>
+  <p>Scan QR to mark attendance</p>
+
+  <div id="reader"></div>
+  <div id="status">Status: Waiting for scan...</div>
+  <button onclick="startScanner()">Start Scanner</button>
+
+  <!-- QR code scanner library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.9/minified/html5-qrcode.min.js"></script>
+
+  <script>
+    // Your deployed Apps Script Web App URL
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwhs_o5GBH_puGl05nFrOEhTYMBJzoQux6v_TfLIwoiIrTGml_vfvRai7JWY_ozakMO/exec";
+
+    let html5QrcodeScanner;
+
+    window.onload = function() {
+      function startScanner() {
+        const readerDiv = document.getElementById("reader");
+        readerDiv.innerHTML = "";
+
+        if (typeof Html5Qrcode === 'undefined') {
+          document.getElementById("status").innerText = "Error: Scanner library not loaded yet";
+          return;
+        }
+
+        Html5Qrcode.getCameras().then(cameras => {
+          if (cameras && cameras.length) {
+            const cameraId = cameras[0].id;
+            html5QrcodeScanner = new Html5Qrcode("reader");
+
+            html5QrcodeScanner.start(
+              cameraId,
+              { fps: 10, qrbox: 250 },
+              decodedText => {
+                document.getElementById("status").innerText = "Scanned UID: " + decodedText;
+
+                // Send UID to Apps Script Web App
+                fetch(APPS_SCRIPT_URL, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ uid: decodedText })
+                })
+                .then(res => res.json())
+                .then(resp => {
+                  if(resp.success) {
+                    document.getElementById("status").innerText = "✅ Attendance marked for UID: " + decodedText;
+                  } else {
+                    document.getElementById("status").innerText = "⚠️ " + resp.message;
+                  }
+                })
+                .catch(err => {
+                  document.getElementById("status").innerText = "Error sending UID: " + err;
+                });
+
+              },
+              errorMessage => { /* ignore scan failures */ }
+            ).catch(err => {
+              document.getElementById("status").innerText = "Error starting camera: " + err;
+            });
+
+          } else {
+            document.getElementById("status").innerText = "No camera found on this device";
+          }
+        }).catch(err => {
+          document.getElementById("status").innerText = "Error accessing cameras: " + err;
+        });
+      }
+
+      window.startScanner = startScanner;
+    }
+  </script>
+</body>
+</html>
